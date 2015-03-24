@@ -177,12 +177,6 @@ def handle_register_or_upload(post_data, files, user):
     try:
         package = models.Package.objects.get(name=name)
 
-        # Error out when we try to override a mirror'ed package for now
-        # not sure what the best thing is
-        if not package.is_local:
-            return HttpResponseBadRequest(
-                '%s is a pypi package!' % package.name)
-
         # Ensure that the user is one of the owners
         if not package.owners.filter(pk=user.pk).exists():
             if not user.is_superuser:
@@ -191,8 +185,15 @@ def handle_register_or_upload(post_data, files, user):
             # User is a superuser, add him to the owners
             package.owners.add(user)
 
+        # refresh data
+        get_package_data(name, package)
         try:
             release = package.releases.get(version=version)
+            # Error out when we try to override a mirror'ed package release
+            if not package.is_local:
+                return HttpResponseBadRequest(
+                    '%s is a pypi package!' % package.name)
+
         except ObjectDoesNotExist:
             release = None
     except ObjectDoesNotExist:
